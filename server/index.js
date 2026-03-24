@@ -9,6 +9,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+//Force node to use DNS resolution for localhost to avoid issues with MongoDB Atlas connection
+require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
+
 // 1. MongoDB 연결 (MongoDB Atlas)
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("DB Connected"))
@@ -27,11 +30,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // 3. 분석 API
 app.post('/api/analyze', async (req, res) => {
   const { content } = req.body;
+  // AI에게 일기를 분석해달라고 요청 하기 전에 컨텐츠가 넘어왔는지 확인
+  console.log(content)
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "일기를 분석해 JSON 응답: { score: 수치, emotions: [{label, value}], stress: [], recovery: [], advice: '' }" },
+        { role: "system", 
+          content: "일기를 분석해 JSON 응답: { score: 수치, emotions: [{label, value}], stress: [], recovery: [], advice: '' }" 
+        },
         { role: "user", content }
       ],
       response_format: { type: "json_object" }
@@ -46,5 +53,6 @@ app.post('/api/analyze', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 app.listen(4000, () => console.log('Server on 4000'));
